@@ -1,3 +1,10 @@
+/*
+  WiFi Syslog client. Logging messages to a syslog server and into a buffer.
+  It logs every second a message and dumps the buffer every 10 seconds 
+  to the console.
+ 
+  created 27 Januar 2018 by INgo.Rah@gmx.net
+ */
 #include <ESP8266WiFi.h>
 #include <WiFiClient.h>
 #include <ESP8266mDNS.h>
@@ -7,10 +14,11 @@ const char* ssid = "***";
 const char* password = "***";
 
 SysLogger Log;
-const char* host = "esp";
+
+#define MAX_LOG 10
 
 /* wait if 0, not waiting for connection (trying once). Else wait specifies
-   timout in 100 ms steps. */
+   timeout in 100 ms steps. */
 void wifi_connect(char en, int wait) {
   int i = 0;
 
@@ -42,23 +50,30 @@ void setup(void){
  
   // connecting....timout 5 mins
   wifi_connect(1, 5*60*10);
-  MDNS.begin(host);
-  MDNS.addService("http", "tcp", 80);
-
   // define target IP of syslog daemon
-  IPAddress ip(192,168,178,25);
-  Log.init(ip);
+  Log.init(IPAddress(192,168,178,22), MAX_LOG);
   Log.println ("syslog init done");
 }
 
-/* send out alive every 10 secs */
-#define STATUS_POLL_CYCLE (1000 * 10)
+/* send out alive every 1 secs*/
+#define STATUS_POLL_CYCLE (1000 * 1)
 
 void loop(void){
-  static unsigned long status_poll = 0;
+  static unsigned long statusPoll = 0;
+  static unsigned long logDump = 0;
 
-  if (millis() - status_poll >= STATUS_POLL_CYCLE) {
-      status_poll = millis();
+  if (millis() - statusPoll >= STATUS_POLL_CYCLE) {
+      statusPoll = millis();
       Log.printf("alive\n");
+  }
+  if (millis() - logDump >= 10 * STATUS_POLL_CYCLE) {
+      logDump = millis();
+      String s[MAX_LOG];
+      int cnt, i;
+      String content;
+
+      cnt = Log.read(s);
+      for (i = 0; i < cnt; i++)
+        Serial.println(s[i]);
   }
 }
